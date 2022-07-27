@@ -744,7 +744,7 @@ class ProcessConfig implements Map<String,Object>, Cloneable {
         if( !lbl ) return this
         // -- check that label has a valid syntax
         if( !isResourceLabelsSyntax(lbl) )
-            throw new IllegalConfigException("Not a valid process resource label: $lbl -- Label must consist of alphanumeric characters or '_', must start with an alphabetic character and must end with an alphanumeric character")
+            throw new IllegalConfigException("Not a valid process resource label: $lbl -- Resource must consist of a key=value string and key Label must consist of alphanumeric characters or '_', must start with an alphabetic character and must end with an alphanumeric character")
         Map resource = parseAsMap(lbl)
         resourceLabel(resource)
         return this

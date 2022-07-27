@@ -18,6 +18,7 @@
 
 import nextflow.exception.AbortRunException
 import nextflow.NextflowMeta
+import nextflow.exception.IllegalConfigException
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Timeout
@@ -723,6 +724,32 @@ class FunctionalTests extends Specification {
         processor.config.label == [ 'bravo', 'gamma' ]
         processor.config.getResourceLabels().size() == 3
         processor.config.getResourceLabels() == [ department: 'floor3' , region: 'eu-west-1', org:'nextflow']
+    }
+
+    def 'should check invalid resourceLabels' () {
+
+        when:
+        def CONFIG = '''
+            process {
+                executor = 'nope'
+                label = 'alpha'
+            }
+            '''
+
+        def script = '''   
+                process foo {
+                    resourceLabel 'department'
+                    script:
+                    'echo hello'
+                }
+                '''
+
+        def cfg = new ConfigParser().parse(CONFIG)
+        def runner = new TestScriptRunner(cfg)
+        runner.setScript(script).execute()
+        def processor = runner.scriptObj.taskProcessor
+        then:
+        thrown(IllegalConfigException)
     }
 
 
