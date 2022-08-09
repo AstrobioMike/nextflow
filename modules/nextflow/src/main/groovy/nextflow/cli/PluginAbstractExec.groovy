@@ -53,6 +53,7 @@ trait PluginAbstractExec implements PluginExecAware {
         final config = new ConfigBuilder()
                 .setOptions(launcher1.options)
                 .setBaseDir(Paths.get('.'))
+                .setIgnoreIncludes(true)    // <-- only resolve the main config file
                 .build()
 
         if( !cmd || cmd !in getCommands() ) {

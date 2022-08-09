@@ -79,6 +79,8 @@ class ConfigBuilder {
 
     boolean showClosures
 
+    boolean ignoreIncludes
+
     boolean showMissingVariables
 
     Map<ConfigObject, String> emptyVariables = new LinkedHashMap<>(10)
@@ -94,6 +96,11 @@ class ConfigBuilder {
 
     ConfigBuilder setShowClosures(boolean value) {
         this.showClosures = value
+        return this
+    }
+
+    ConfigBuilder setIgnoreIncludes(boolean value) {
+        this.ignoreIncludes = value
         return this
     }
 
@@ -343,7 +350,9 @@ class ConfigBuilder {
     protected ConfigObject buildConfig0( Map env, List configEntries )  {
         assert env != null
 
-        final slurper = new ConfigParser().setRenderClosureAsString(showClosures)
+        final slurper = new ConfigParser()
+                .setRenderClosureAsString(showClosures)
+                .setIgnoreIncludes(ignoreIncludes)
         ConfigObject result = new ConfigObject()
 
         if( cmdRun && (cmdRun.hasParams()) )
