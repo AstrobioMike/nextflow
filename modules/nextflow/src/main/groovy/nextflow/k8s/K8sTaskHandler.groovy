@@ -29,12 +29,14 @@ import nextflow.container.DockerBuilder
 import nextflow.exception.NodeTerminationException
 import nextflow.exception.ProcessSubmitException
 import nextflow.executor.BashWrapperBuilder
+import nextflow.executor.fusion.FusionScriptLauncher
 import nextflow.k8s.client.K8sClient
 import nextflow.k8s.client.K8sResponseException
 import nextflow.k8s.model.PodEnv
 import nextflow.k8s.model.PodOptions
 import nextflow.k8s.model.PodSpecBuilder
 import nextflow.k8s.model.ResourceType
+import nextflow.processor.TaskBean
 import nextflow.processor.TaskHandler
 import nextflow.processor.TaskRun
 import nextflow.processor.TaskStatus
@@ -69,13 +71,17 @@ class K8sTaskHandler extends TaskHandler {
 
     private String podName
 
-    private K8sWrapperBuilder builder
+    private BashWrapperBuilder builder
+
+    private Path wrapperFile
 
     private Path outputFile
 
     private Path errorFile
 
     private Path exitFile
+
+    private Path logFile
 
     private Map state
 
@@ -85,14 +91,21 @@ class K8sTaskHandler extends TaskHandler {
 
     private String runsOnNode = null
 
+    private FusionScriptLauncher fusionLauncher
+
+    private boolean fusionEnabled
+
     K8sTaskHandler( TaskRun task, K8sExecutor executor ) {
         super(task)
         this.executor = executor
         this.client = executor.client
+        this.wrapperFile = task.workDir.resolve(TaskRun.CMD_RUN)
         this.outputFile = task.workDir.resolve(TaskRun.CMD_OUTFILE)
         this.errorFile = task.workDir.resolve(TaskRun.CMD_ERRFILE)
         this.exitFile = task.workDir.resolve(TaskRun.CMD_EXIT)
+        this.logFile = task.workDir.resolve(TaskRun.CMD_LOG)
         this.resourceType = executor.k8sConfig.useJobResource() ? ResourceType.Job : ResourceType.Pod
+        this.fusionEnabled = executor.isFusionEnabled()
     }
 
     /** only for testing -- do not use */
@@ -136,8 +149,11 @@ class K8sTaskHandler extends TaskHandler {
         trie.longest()
     }
 
-    protected K8sWrapperBuilder createBashWrapper(TaskRun task) {
-        new K8sWrapperBuilder(task)
+    protected BashWrapperBuilder createBashWrapper(TaskRun task) {
+        final bean = new TaskBean(task)
+        return fusionEnabled
+                ? fusionLauncher = new FusionScriptLauncher(bean, null, 's3')
+                : new K8sWrapperBuilder(bean)
     }
 
     protected String getSyntheticPodName(TaskRun task) {
@@ -172,8 +188,7 @@ class K8sTaskHandler extends TaskHandler {
 
     protected Map newSubmitRequest0(TaskRun task, String imageName) {
 
-        final fixOwnership = builder.fixOwnership()
-        final launcher = new ArrayList(new ArrayList(BashWrapperBuilder.BASH)) << "${Escape.path(task.workDir)}/${TaskRun.CMD_RUN}".toString()
+        final launcher = fusionEnabled ? fusionSubmitCmd() : classicSubmitCmd()
         final taskCfg = task.getConfig()
 
         final clientConfig = client.config
@@ -197,7 +212,7 @@ class K8sTaskHandler extends TaskHandler {
 
         // note: task environment is managed by the task bash wrapper
         // do not add here -- see also #680
-        if( fixOwnership )
+        if( task.containerConfig.fixOwnership )
             builder.withEnv(PodEnv.value('NXF_OWNER', getOwner()))
 
         // add computing resources
@@ -221,9 +236,28 @@ class K8sTaskHandler extends TaskHandler {
             builder.withActiveDeadline(duration.toSeconds() as int)
         }
 
+        if ( fusionEnabled ) {
+            builder.withPrivileged(true)
+
+            final buckets = fusionLauncher.fusionBuckets().join(',')
+            builder.withEnv(PodEnv.value('NXF_FUSION_BUCKETS', buckets))
+        }
+
         return useJobResource()
             ? builder.buildAsJob()
             : builder.build()
+    }
+
+    protected List<String> classicSubmitCmd() {
+        new ArrayList(BashWrapperBuilder.BASH) << "${Escape.path(task.workDir)}/${TaskRun.CMD_RUN}".toString()
+    }
+
+    protected List<String> fusionSubmitCmd() {
+        final logFile = fusionLauncher.toContainerMount(logFile)
+        final runFile = fusionLauncher.toContainerMount(wrapperFile)
+        final cmd = "trap \"{ ret=\$?; cp ${TaskRun.CMD_LOG} ${logFile}||true; exit \$ret; }\" EXIT; bash ${runFile} 2>&1 | tee ${TaskRun.CMD_LOG}"
+
+        ["sh", "-c", cmd.toString()]
     }
 
     protected PodOptions getPodOptions() {

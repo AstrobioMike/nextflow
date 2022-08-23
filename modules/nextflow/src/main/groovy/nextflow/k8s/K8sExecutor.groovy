@@ -39,6 +39,8 @@ import nextflow.util.ServiceName
 @ServiceName('k8s')
 class K8sExecutor extends Executor {
 
+    private Map<String,String> sysEnv = System.getenv()
+
     /**
      * The Kubernetes HTTP client
      */
@@ -96,5 +98,12 @@ class K8sExecutor extends Executor {
         assert task.workDir
         log.trace "[K8s] launching process > ${task.name} -- work folder: ${task.workDirStr}"
         new K8sTaskHandler(task,this)
+    }
+
+    boolean isFusionEnabled() {
+        def result = session.config.navigate('fusion.enabled')
+        if( result == null )
+            result = sysEnv.get('NXF_FUSION_ENABLED')
+        return result!=null ? result.toString()=='true' : false
     }
 }

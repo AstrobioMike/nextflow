@@ -21,9 +21,9 @@ import java.nio.file.Files
 
 import nextflow.Session
 import nextflow.executor.Executor
+import nextflow.processor.TaskBean
 import nextflow.processor.TaskConfig
 import nextflow.processor.TaskProcessor
-import nextflow.processor.TaskRun
 import spock.lang.Specification
 /**
  *
@@ -39,7 +39,7 @@ class K8sWrapperBuilderTest extends Specification {
         def exec = Mock(Executor)
         def proc = Mock(TaskProcessor) { getSession() >> sess; getExecutor() >> exec }
         def config = new TaskConfig()
-        def task = Mock(TaskRun) {
+        def task = Mock(TaskBean) {
             getName() >> 'foo'
             getConfig() >> config
             getProcessor() >> proc

@@ -20,7 +20,7 @@ package nextflow.k8s
 
 import groovy.transform.CompileStatic
 import nextflow.executor.BashWrapperBuilder
-import nextflow.processor.TaskRun
+import nextflow.processor.TaskBean
 import nextflow.util.Escape
 
 /**
@@ -31,19 +31,14 @@ import nextflow.util.Escape
 @CompileStatic
 class K8sWrapperBuilder extends BashWrapperBuilder {
 
-    K8sWrapperBuilder(TaskRun task) {
-        super(task)
-        this.headerScript = "NXF_CHDIR=${Escape.path(task.workDir)}"
+    K8sWrapperBuilder(TaskBean bean) {
+        super(bean)
+        this.headerScript = "NXF_CHDIR=${Escape.path(bean.workDir)}"
     }
 
     /**
      * only for testing purpose -- do not use
      */
     protected K8sWrapperBuilder() {}
-
-    @Override
-    boolean fixOwnership() {
-        containerConfig.fixOwnership
-    }
 
 }

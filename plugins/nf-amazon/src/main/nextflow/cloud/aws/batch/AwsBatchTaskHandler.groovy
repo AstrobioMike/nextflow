@@ -50,7 +50,6 @@ import com.amazonaws.services.batch.model.SubmitJobRequest
 import com.amazonaws.services.batch.model.SubmitJobResult
 import com.amazonaws.services.batch.model.TerminateJobRequest
 import com.amazonaws.services.batch.model.Volume
-import com.upplication.s3fs.S3Path
 import groovy.transform.CompileStatic
 import groovy.transform.Memoized
 import groovy.util.logging.Slf4j
@@ -334,7 +333,7 @@ class AwsBatchTaskHandler extends TaskHandler implements BatchHandler<String,Job
 
     protected BashWrapperBuilder createTaskWrapper() {
         return fusionEnabled
-                ? fusionLauncher = new FusionScriptLauncher(bean, executor.getRemoteBinDir(), S3Path)
+                ? fusionLauncher = new FusionScriptLauncher(bean, executor.getRemoteBinDir(), 's3')
                 : new AwsBatchScriptLauncher(bean, getAwsOptions())
     }
 
